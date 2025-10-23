@@ -1,0 +1,18 @@
+```{r}
+library(tidyverse)  
+library(data.table) 
+library(readr)      
+library(dplyr)      
+library(ggplot2)    
+library(stringr)    
+library(lubridate)  
+library(readxl)
+```
+## I tried to write code to download the data directly from GitHub to avoid the issue with different file paths on different computers but was unsuccessful.
+#url1 <- "https://raw.githubusercontent.com/liminglin98/EconHistoryPS1/main/stock_income.xlsx"
+#download.file(url1, destfile = "stock_income.xlsx", mode = "wb")
+#stock_income <- read_excel("stock_income.xlsx", sheet = 1) 
+```{r}
+stock_income <- read_excel("D:/My Drive/Sciences Po/Fall2025/Economic History/Assignment/Paul/stock_income.xlsx" , sheet = 1)
+head(stock_income)
+```
