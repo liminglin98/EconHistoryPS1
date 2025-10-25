@@ -25,6 +25,7 @@ pkg_loader("stringr")
 pkg_loader("lubridate")
 pkg_loader("readxl")
 pkg_loader("here")
+pkg_loader("fixest")
 ```
 # Load data from the current folder
 ```{r}
@@ -48,4 +49,29 @@ combined_data <- left_join(car_clean, stock_income, by = "state") %>%
   select(state, everything()) %>%
   mutate(month = factor(month, levels = 1:12, ordered = TRUE)) %>%
   arrange(state, year, month)
+```
+# Create the post-crash dummy variable
+```{r}
+combined_data <- combined_data %>%
+  mutate(post_crash = ifelse(year > 1929 | (year == 1929 & month > 10), 1, 0))
+```  
+# 5. An ideal measure of $x_s$ would be the average changes in stock wealth per capita.
+# Construct a variable that measures the exposure of a state to the stock market
+```{r}
+combined_data <- combined_data %>%
+  mutate(stock_exposure = dividend_income / total_income)
+```  
+# The idea behind this measure is that dividends income represents the returns that households in a state receive from their stock holdings. Therefore, we may assume that states with higher dividend income percentage have more investment in the stock market.
+
+# 7. The regression uses a generalized difference-in-differences approach. It estimates the effect of the crash by comparing how consumption ($y_{st}$) changed after the crash ($D_t=1$) across states ($s$) based on their pre-crash exposure level ($x_s$). The state fixed effects ($\mu_s$) account for constant differences across states, while the time fixed effects ($\gamma_t$) account for common trends affecting all states over time. The key coefficient, $\beta$, isolates the additional impact of the crash on states with higher exposure, assuming that otherwise, trends would have been parallel across states with different exposure levels (after controlling for the fixed effects).However, a major identification concern is the potential violation of this parallel trends assumption. The pre-crash exposure measure, $x_s$, might be correlated with unobserved, state-specific factors that were already causing differential consumption trends before 1929. For instance, states with higher $x_s$ might have been on different economic growth paths. If these pre-existing trends continued after the crash, the model could wrongly attribute the difference to the crash effect ($\beta$) instead of the underlying trend. Additionally, using 1928 data introduces potential measurement error if exposure significantly changed between 1928 and late 1929.
+
+# 8. Estimate the regression
+```{r}
+combined_data <- combined_data %>%
+  mutate(log_sale = log(registrations)) %>%
+  mutate(year_month = make_date(year, as.numeric(month), 1))
+model1 <- combined_data %>%
+  filter(year>=1929 & year<=1930) %>%
+  feols(log_sale ~ stock_exposure * post_crash | state + year_month)
+summary(model1)
 ```
