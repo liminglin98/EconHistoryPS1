@@ -1,18 +1,51 @@
+---
+title: "Economic History"
+subtitle: "Assignment 1"
+author: ""
+date: "Oct. 23th, 2025"
+output:
+  pdf_document: default
+  html_document: default
+url_color: blue
+---
+# Check and Load necessary libraries
 ```{r}
-library(tidyverse)  
-library(data.table) 
-library(readr)      
-library(dplyr)      
-library(ggplot2)    
-library(stringr)    
-library(lubridate)  
-library(readxl)
+pkg_loader <- function(pkg){
+  if(!require(pkg, character.only = TRUE, quietly = TRUE)){
+    install.packages(pkg, dependencies = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+pkg_loader("tidyverse")
+pkg_loader("data.table")
+pkg_loader("readr")
+pkg_loader("dplyr")
+pkg_loader("ggplot2")
+pkg_loader("stringr")
+pkg_loader("lubridate")
+pkg_loader("readxl")
+pkg_loader("here")
 ```
-## I tried to write code to download the data directly from GitHub to avoid the issue with different file paths on different computers but was unsuccessful.
-#url1 <- "https://raw.githubusercontent.com/liminglin98/EconHistoryPS1/main/stock_income.xlsx"
-#download.file(url1, destfile = "stock_income.xlsx", mode = "wb")
-#stock_income <- read_excel("stock_income.xlsx", sheet = 1) 
+# Load data from the current folder
 ```{r}
-stock_income <- read_excel("D:/My Drive/Sciences Po/Fall2025/Economic History/Assignment/Paul/stock_income.xlsx" , sheet = 1)
-head(stock_income)
+stock_income <- read_excel(here("stock_income.xlsx"), sheet = 1)
+car <- read_excel(here("StateNewCarRegistrations.xlsx"), sheet = 1)
+```
+# Clean the car data
+```{r}
+regex_pattern <- "^[-+]?[0-9]*\\.?[0-9]+$"
+car_clean <- car %>%
+  filter(grepl(regex_pattern, month)) %>%
+  pivot_longer(
+    cols = -c(month,year),
+    names_to = "state",
+    values_to = "registrations"
+  ) 
+```
+# Merge the two datasets
+```{r}
+combined_data <- left_join(car_clean, stock_income, by = "state") %>%
+  select(state, everything()) %>%
+  mutate(month = factor(month, levels = 1:12, ordered = TRUE)) %>%
+  arrange(state, year, month)
 ```
