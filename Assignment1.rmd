@@ -1,39 +1,27 @@
 ---
 title: "Economic History"
 subtitle: "Assignment 1"
-author: ""
-date: "Oct. 23th, 2025"
+author: "Abdul Baari Bakpa, Liming Liu, Vuk Rikanovic, Zihoa Liu"
+date: "\today"
 output:
   pdf_document: default
   html_document: default
-url_color: blue
+
 ---
 # Check and Load necessary libraries
-```{r}
-pkg_loader <- function(pkg){
-  if(!require(pkg, character.only = TRUE, quietly = TRUE)){
-    install.packages(pkg, dependencies = TRUE)
-    library(pkg, character.only = TRUE)
-  }
-}
-pkg_loader("tidyverse")
-pkg_loader("data.table")
-pkg_loader("readr")
-pkg_loader("dplyr")
-pkg_loader("ggplot2")
-pkg_loader("stringr")
-pkg_loader("lubridate")
-pkg_loader("readxl")
-pkg_loader("here")
-pkg_loader("fixest")
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(readxl)
+library(here)
+library(fixest)
 ```
 # Load data from the current folder
-```{r}
+```{r echo=TRUE, message=FALSE}
 stock_income <- read_excel(here("stock_income.xlsx"), sheet = 1)
 car <- read_excel(here("StateNewCarRegistrations.xlsx"), sheet = 1)
 ```
 # Clean the car data
-```{r}
+```{r echo=TRUE, message=FALSE}
 regex_pattern <- "^[-+]?[0-9]*\\.?[0-9]+$"
 car_clean <- car %>%
   filter(grepl(regex_pattern, month)) %>%
@@ -44,34 +32,84 @@ car_clean <- car %>%
   ) 
 ```
 # Merge the two datasets
-```{r}
+```{r echo=TRUE, message=FALSE}
 combined_data <- left_join(car_clean, stock_income, by = "state") %>%
   select(state, everything()) %>%
   mutate(month = factor(month, levels = 1:12, ordered = TRUE)) %>%
   arrange(state, year, month)
 ```
 # Create the post-crash dummy variable
-```{r}
+```{r echo=TRUE, message=FALSE}
 combined_data <- combined_data %>%
   mutate(post_crash = ifelse(year > 1929 | (year == 1929 & month > 10), 1, 0))
 ```  
-# 5. An ideal measure of $x_s$ would be the average changes in stock wealth per capita.
-# Construct a variable that measures the exposure of a state to the stock market
-```{r}
+# 5. An ideal world, what should $x_s$ be if we’re interested in the wealth channel of the crash?
+An ideal measure of $x_s$ would be the average changes in stock wealth per capita.
+
+
+# 6. Construct a variable which measures the exposure of a state to the stock market:
+$$
+x_s = \frac{dividend\_income_s}{total\_income_s}
+$$
+Explain the idea behind this measure.
+```{r echo=TRUE, message=FALSE}
 combined_data <- combined_data %>%
   mutate(stock_exposure = dividend_income / total_income)
 ```  
-# The idea behind this measure is that dividends income represents the returns that households in a state receive from their stock holdings. Therefore, we may assume that states with higher dividend income percentage have more investment in the stock market.
+The idea behind this measure is that dividends income represents the returns that households in a state receive from their stock holdings. Therefore, we may assume that states with higher dividend income percentage have more investment in the stock market.
 
-# 7. The regression uses a generalized difference-in-differences approach. It estimates the effect of the crash by comparing how consumption ($y_{st}$) changed after the crash ($D_t=1$) across states ($s$) based on their pre-crash exposure level ($x_s$). The state fixed effects ($\mu_s$) account for constant differences across states, while the time fixed effects ($\gamma_t$) account for common trends affecting all states over time. The key coefficient, $\beta$, isolates the additional impact of the crash on states with higher exposure, assuming that otherwise, trends would have been parallel across states with different exposure levels (after controlling for the fixed effects).However, a major identification concern is the potential violation of this parallel trends assumption. The pre-crash exposure measure, $x_s$, might be correlated with unobserved, state-specific factors that were already causing differential consumption trends before 1929. For instance, states with higher $x_s$ might have been on different economic growth paths. If these pre-existing trends continued after the crash, the model could wrongly attribute the difference to the crash effect ($\beta$) instead of the underlying trend. Additionally, using 1928 data introduces potential measurement error if exposure significantly changed between 1928 and late 1929.
+# 7.Explain the idea behind regression (1). What are the identification concerns?
+ The regression uses a generalized difference-in-differences approach. It estimates the effect of the crash by comparing how consumption ($y_{st}$) changed after the crash ($D_t=1$) across states ($s$) based on their pre-crash exposure level ($x_s$). The state fixed effects ($\mu_s$) account for constant differences across states, while the time fixed effects ($\gamma_t$) account for common trends affecting all states over time. The key coefficient, $\beta$, isolates the additional impact of the crash on states with higher exposure, assuming that otherwise, trends would have been parallel across states with different exposure levels (after controlling for the fixed effects).However, a major identification concern is the potential violation of this parallel trends assumption. The pre-crash exposure measure, $x_s$, might be correlated with unobserved, state-specific factors that were already causing differential consumption trends before 1929. For instance, states with higher $x_s$ might have been on different economic growth paths. If these pre-existing trends continued after the crash, the model could wrongly attribute the difference to the crash effect ($\beta$) instead of the underlying trend. Additionally, using 1928 data introduces potential measurement error if exposure significantly changed between 1928 and late 1929.
 
 # 8. Estimate the regression
-```{r}
+```{r echo=TRUE, results='asis', message=FALSE}
 combined_data <- combined_data %>%
   mutate(log_sale = log(registrations)) %>%
   mutate(year_month = make_date(year, as.numeric(month), 1))
 model1 <- combined_data %>%
   filter(year>=1929 & year<=1930) %>%
   feols(log_sale ~ stock_exposure * post_crash | state + year_month)
-summary(model1)
+etable(model1, tex = TRUE, digits = 4, signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.1, "." = 0.15))
+```
+
+# 9. Assuming our measure of exposure to the stock market is the right one, would regression (1) beappropriate to capture the wealth channel of the crash? Would it capture the uncertainty channel that Romer writes about?
+\textbf{Wealth channel.}
+Yes, regression (1) is the right design for that channel. If stock-market-exposed states
+(high dividends share) see a sharper fall in car sales after October 1929, that is consistent
+with a causal wealth effect: the crash destroyed their balance sheets and they stopped buying cars.
+
+\textbf{Uncertainty channel}
+No, regression (1) will not capture Romer's uncertainty mechanism. Romer argues the crash
+created a temporary spike in income uncertainty that made consumers everywhere postpone
+durable purchases, even if they did not own stocks. That effect is
+mostly aggregate --- the same for all states. In the regression,
+any common nationwide collapse in car buying after the crash is soaked up by
+$\gamma_t$ (the time fixed effects) and by $D_t$. It will not load on $\beta$.
+So $\beta$ is blind to the uncertainty channel.
+
+# 10.  The income data comes from federal tax returns. Do you see a potential problem there? Hint: less than 5% of population paid federal income tax in the 1920s.
+Yes: selection bias.
+The income data only covers tax filers, and in the 1920s fewer than 5% of Americans paid federal income tax. That means the data is basically rich households only.
+So using that income measure to proxy “state income,” we are really tracking shocks to high-income taxpayers, not the overall population. That creates sample selection bias: we might falsely attribute a state’s consumption drop to “income falling,” when in fact we only observed the top tail. This can distort both levels and changes.
+
+# 11. Run the following variant of (1):
+$$
+y_{st} = \alpha + \beta \, x_s \times MD_t + \gamma_t + \mu_s + e_{st} \tag{2}
+
+$$
+
+where $MD_t$ is a time dummy. Note that you will have to drop the dummy for one time period
+since those are colinear with the time and state fixed effects. Drop October 1929.
+
+```{r echo=TRUE, results='asis', message=FALSE}
+
+model2 <- combined_data %>%
+  filter(year >= 1929 & year <= 1930) %>%
+  feols(
+    log_sale ~ stock_exposure:i(year_month, ref = as.Date("1929-10-01")) |
+      state + year_month
+  )
+
+etable(model2, tex = TRUE, digits = 4, signif.code = c("***" = 0.01, "**" = 0.05, "*" = 0.1, "." = 0.15))
+
 ```
