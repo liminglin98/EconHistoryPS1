@@ -2,26 +2,26 @@
 title: "Economic History"
 subtitle: "Assignment 1"
 author: "Abdul Baari Bakpa, Liming Liu, Vuk Rikanovic, Zihoa Liu"
-date: "\today"
+date: "30/10/2025"
 output:
   pdf_document: default
   html_document: default
 
 ---
 # Check and Load necessary libraries
-```{r echo=TRUE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(readxl)
 library(here)
 library(fixest)
 ```
 # Load data from the current folder
-```{r echo=TRUE, message=FALSE}
+```{r echo=FALSE, message=FALSE}
 stock_income <- read_excel(here("stock_income.xlsx"), sheet = 1)
 car <- read_excel(here("StateNewCarRegistrations.xlsx"), sheet = 1)
 ```
 # Clean the car data
-```{r echo=TRUE, message=FALSE}
+```{r echo=FALSE, message=FALSE}
 regex_pattern <- "^[-+]?[0-9]*\\.?[0-9]+$"
 car_clean <- car %>%
   filter(grepl(regex_pattern, month)) %>%
@@ -32,14 +32,14 @@ car_clean <- car %>%
   ) 
 ```
 # Merge the two datasets
-```{r echo=TRUE, message=FALSE}
+```{r echo=FALSE, message=FALSE}
 combined_data <- left_join(car_clean, stock_income, by = "state") %>%
   select(state, everything()) %>%
   mutate(month = factor(month, levels = 1:12, ordered = TRUE)) %>%
   arrange(state, year, month)
 ```
 # Create the post-crash dummy variable
-```{r echo=TRUE, message=FALSE}
+```{r echo=FALSE, message=FALSE}
 combined_data <- combined_data %>%
   mutate(post_crash = ifelse(year > 1929 | (year == 1929 & month > 10), 1, 0))
 ```  
@@ -52,7 +52,7 @@ $$
 x_s = \frac{dividend\_income_s}{total\_income_s}
 $$
 Explain the idea behind this measure.
-```{r echo=TRUE, message=FALSE}
+```{r echo=FALSE, message=FALSE}
 combined_data <- combined_data %>%
   mutate(stock_exposure = dividend_income / total_income)
 ```  
@@ -62,7 +62,7 @@ The idea behind this measure is that dividends income represents the returns tha
  The regression uses a generalized difference-in-differences approach. It estimates the effect of the crash by comparing how consumption ($y_{st}$) changed after the crash ($D_t=1$) across states ($s$) based on their pre-crash exposure level ($x_s$). The state fixed effects ($\mu_s$) account for constant differences across states, while the time fixed effects ($\gamma_t$) account for common trends affecting all states over time. The key coefficient, $\beta$, isolates the additional impact of the crash on states with higher exposure, assuming that otherwise, trends would have been parallel across states with different exposure levels (after controlling for the fixed effects).However, a major identification concern is the potential violation of this parallel trends assumption. The pre-crash exposure measure, $x_s$, might be correlated with unobserved, state-specific factors that were already causing differential consumption trends before 1929. For instance, states with higher $x_s$ might have been on different economic growth paths. If these pre-existing trends continued after the crash, the model could wrongly attribute the difference to the crash effect ($\beta$) instead of the underlying trend. Additionally, using 1928 data introduces potential measurement error if exposure significantly changed between 1928 and late 1929.
 
 # 8. Estimate the regression
-```{r echo=TRUE, results='asis', message=FALSE}
+```{r echo=FALSE, results='asis', message=FALSE}
 combined_data <- combined_data %>%
   mutate(log_sale = log(registrations)) %>%
   mutate(year_month = make_date(year, as.numeric(month), 1))
@@ -94,14 +94,13 @@ So using that income measure to proxy “state income,” we are really tracking
 
 # 11. Run the following variant of (1):
 $$
-y_{st} = \alpha + \beta \, x_s \times MD_t + \gamma_t + \mu_s + e_{st} \tag{2}
-
+y_{st} = \alpha + \beta \, x_s \times MD_t + \gamma_t + \mu_s + e_{st} 
 $$
 
 where $MD_t$ is a time dummy. Note that you will have to drop the dummy for one time period
 since those are colinear with the time and state fixed effects. Drop October 1929.
 
-```{r echo=TRUE, results='asis', message=FALSE}
+```{r echo=FALSE, results='asis', message=FALSE}
 
 model2 <- combined_data %>%
   filter(year >= 1929 & year <= 1930) %>%
